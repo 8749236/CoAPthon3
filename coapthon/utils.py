@@ -1,5 +1,7 @@
+import os
 import random
 import string
+import logging.config
 
 __author__ = 'Giacomo Tanganelli'
 
@@ -125,7 +127,16 @@ def parse_uri(uri):
     return str(host), port, path
 
 
+def load_logging_config(path=None):
+    if not os.path.isfile("logging.conf"):
+        create_logging()
+        return
+    logging.config.fileConfig(path or "logging.conf", disable_existing_loggers=False)
+
+
 def create_logging():  # pragma: no cover
+    if os.path.isfile("logging.conf"):
+        return
     with open("logging.conf", "w") as f:
         f.writelines("[loggers]\n")
         f.writelines("keys=root\n\n")

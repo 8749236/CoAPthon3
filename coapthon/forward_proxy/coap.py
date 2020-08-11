@@ -1,4 +1,3 @@
-import logging.config
 import random
 import socket
 import struct

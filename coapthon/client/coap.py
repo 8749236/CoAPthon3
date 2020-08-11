@@ -1,4 +1,3 @@
-import logging.config
 import os
 import random
 import socket
