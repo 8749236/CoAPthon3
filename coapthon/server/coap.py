@@ -39,7 +39,7 @@ class CoAP(object):
         Initialize the server.
 
         :param server_address: Server address for incoming connections
-        :param multicast: if the ip is a multicast address
+        :param multicast: if the ip is a multicast address, maybe specified as multicast group address instead of using default
         :param starting_mid: used for testing purposes
         :param sock: if a socket has been created externally, it can be used directly
         :param cb_ignore_listen_exception: Callback function to handle exception raised during the socket listen operation
@@ -82,20 +82,26 @@ class CoAP(object):
 
             # Join group
             if addrinfo[0] == socket.AF_INET:  # IPv4
+                if type(self.multicast) is bool:
+                    self.multicast = defines.ALL_COAP_NODES
+
                 self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
                 self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 self._socket.bind(('', self.server_address[1]))
-                mreq = struct.pack("4sl", socket.inet_aton(defines.ALL_COAP_NODES), socket.INADDR_ANY)
+                mreq = struct.pack("4sl", socket.inet_aton(self.multicast), socket.INADDR_ANY)
                 self._socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
             else:
+                if type(self.multicast) is bool:
+                    self.multicast = defines.ALL_COAP_NODES_IPV6
+
                 self._socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 
                 # Allow multiple copies of this program on one machine
                 # (not strictly needed)
                 self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                self._socket.bind((defines.ALL_COAP_NODES_IPV6, self.server_address[1]))
+                self._socket.bind((self.multicast, self.server_address[1]))
 
-                addrinfo_multicast = socket.getaddrinfo(defines.ALL_COAP_NODES_IPV6, 5683)[0]
+                addrinfo_multicast = socket.getaddrinfo(self.multicast, 5683)[0]
                 group_bin = socket.inet_pton(socket.AF_INET6, addrinfo_multicast[4][0])
                 mreq = group_bin + struct.pack('@I', 0)
                 self._socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
