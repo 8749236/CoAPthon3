@@ -90,6 +90,7 @@ class HelperClient(object):
 
         resp = self.send_request(request, callback=None, timeout=timeout)
         if resp:
+            self.observe_token = None
             self.observe_path = None
         return resp
 
