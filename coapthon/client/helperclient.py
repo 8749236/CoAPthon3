@@ -28,6 +28,8 @@ class HelperClient(object):
         self.protocol = CoAP(self.server, random.randint(1, 65535), self._wait_response, sock=sock,
                              cb_ignore_read_exception=cb_ignore_read_exception, cb_ignore_write_exception=cb_ignore_write_exception)
         self.queue = Queue()
+        self.observe_token = None
+        self.observe_path = None
 
     def _wait_response(self, message):
         """
@@ -62,24 +64,43 @@ class HelperClient(object):
         while not self.protocol.stopped.isSet():
             response = self.queue.get(block=True)
             callback(response)
+            
+    def cancel_observe_token(self, token=None, explicit=False, timeout=None):  # pragma: no cover
+        """
+        Delete observing on the remote server.
 
-    def cancel_observing(self, response, send_rst):  # pragma: no cover
+        :param token: the observe token
+        :param explicit: if explicitly cancel
+        """
+        if token is None:
+            token = self.observe_token
+        if self.observe_token is None:
+            return None
+        self.protocol.end_observation(token)
+        if not explicit:
+            self.observe_path = None
+            return
+
+        request = self.mk_request(defines.Codes.GET, self.observe_path)
+
+        # RFC7641 explicit cancel is by sending OBSERVE=1 with the same token,
+        # not by an unsolicited RST (which would be ignored)
+        request.token = token
+        request.observe = 1
+
+        resp = self.send_request(request, callback=None, timeout=timeout)
+        if resp:
+            self.observe_path = None
+        return resp
+
+    def cancel_observing(self, response, explicit):  # pragma: no cover
         """
         Delete observing on the remote server.
 
         :param response: the last received response
-        :param send_rst: if explicitly send RST message
-        :type send_rst: bool
+        :param explicit: if explicitly cancel using token
         """
-        if send_rst:
-            message = Message()
-            message.destination = self.server
-            message.code = defines.Codes.EMPTY.number
-            message.type = defines.Types["RST"]
-            message.token = response.token
-            message.mid = response.mid
-            self.protocol.send_message(message)
-        self.stop()
+        self.cancel_observe_token(self, response.token, explicit)
 
     def get(self, path, callback=None, timeout=None, **kwargs):  # pragma: no cover
         """
@@ -126,7 +147,12 @@ class HelperClient(object):
         :param timeout: the timeout of the request
         :return: the response to the observe request
         """
+        if self.observe_token is not None:
+            raise RuntimeError("Only one active observation is allowed per client")
+        self.observe_token = generate_random_token(2)
+        self.observe_path = path
         request = self.mk_request(defines.Codes.GET, path)
+        request.token = generate_random_token(2)
         request.observe = 0
 
         for k, v in kwargs.items():
@@ -223,7 +249,7 @@ class HelperClient(object):
         :param request: the request to send
         :param callback: the callback function to invoke upon response
         :param timeout: the timeout of the request
-        :return: the response
+        :return: the response (synchronous), or the token (for asynchronous callback)
         """
         if callback is not None:
             thread = threading.Thread(target=self._thread_body, args=(request, callback))
