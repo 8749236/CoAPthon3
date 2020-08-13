@@ -159,7 +159,8 @@ class HelperClient(object):
             if hasattr(request, k):
                 setattr(request, k, v)
 
-        return self.send_request(request, callback, timeout)
+        self.send_request(request, callback, timeout)
+        return self.observe_token
 
     def delete(self, path, callback=None, timeout=None, **kwargs):  # pragma: no cover
         """
