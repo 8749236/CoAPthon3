@@ -152,7 +152,7 @@ class HelperClient(object):
         self.observe_token = generate_random_token(2)
         self.observe_path = path
         request = self.mk_request(defines.Codes.GET, path)
-        request.token = generate_random_token(2)
+        request.token = self.observe_token
         request.observe = 0
 
         for k, v in kwargs.items():
