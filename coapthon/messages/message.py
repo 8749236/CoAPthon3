@@ -122,7 +122,7 @@ class Message(object):
         if value is None:
             self._token = value
             return
-        if not isinstance(value, str):
+        if not isinstance(value, str) and not isinstance(value, bytes):
             value = str(value)
         if len(value) > 256:
             raise AttributeError
